@@ -1,8 +1,10 @@
 var user=require('../Model/Usermodel')
+var admin=require('../Model/Admin')
 const bcrypt = require('bcrypt');
 const storage = require('node-persist');
 const nodemailer = require("nodemailer");
 var jwt = require('jsonwebtoken');
+const Admin = require('../Model/Admin');
 storage.init();
 
 
@@ -39,13 +41,28 @@ var transporter = nodemailer.createTransport({
 
 exports.Signup = async (req, res) => {
     try {
+
+        const { name, email, password, ...rest } = req.body;
+
         const hashedPassword = await bcrypt.hash(req.body.password, SALT_ROUNDS);
         req.body.password = hashedPassword;
 
-        const data = await user.create(req.body);
+        // const data = await user.create(req.body);
+
+        let data;
+        let isAdmin = false;
+        if (name.includes("admin")) {
+            // Example logic: Treat as admin if email contains 'admin'
+            data = await admin.create({ name, email, password: hashedPassword });
+            isAdmin = true;
+        } else {
+            // Treat as user by default
+            data = await user.create({ name, email, password: hashedPassword });
+        }
         console.log(data);
         res.status(200).json({
             status: "Success",
+            isAdmin,
             data
         });
     } catch (error) {
@@ -65,98 +82,19 @@ exports.get_index=async(req,res)=>{
     })
 }
 
-
-
-// exports.Login = async (req, res) => {
-//     try {
-//         // Find user by email
-//         const existingUser = await user.findOne({ email: req.body.email});
-//         console.log("password",password)
-//         // If user does not exist, return an error
-//         if (!existingUser.password) {
-//             return res.status(404).json({
-//                 status: "Failure",
-//                 message: "User not found. Please sign up first."
-//             });
-//         }
-
-//         // Compare the password with the hashed password in the database
-//         // const isPasswordCorrect = await bcrypt.compare(req.body.password, existingUser.password);
-        
-//         // If the password is incorrect, return an error
-//         if (!existingUser) {
-//             return res.status(401).json({
-//                 status: "Failure",
-//                 message: "Invalid email or password."
-//             });
-//         }
-
-//         // If the email and password are correct, login is successful
-//         res.status(200).json({
-//             status: "Success",
-//             message: "Login successful",
-//             data: existingUser
-//         });
-//     } catch (error) {
-//         // Handle any errors that occur during the process
-//         res.status(500).json({
-//             status: "Failure",
-//             message: "An error occurred while logging in",
-//             error: error.message
-//         });
-//     }
-// };
-
-
-// exports.Login = async (req, res) => {
-//     try {
-//         // Find user by email
-//         const existingUser = await user.findOne({ email: req.body.email });
-
-//         // Check if the user exists
-//         if (!existingUser) {
-//             return res.status(404).json({
-//                 status: "Failure",
-//                 message: "User not found. Please sign up first."
-//             });
-//         }
-
-//         // Check if the password matches
-//         if (req.body.password !== existingUser.password) {
-//             return res.status(401).json({
-//                 status: "Failure",
-//                 message: "Incorrect password. Please try again."
-//             });
-//         }
-
-//         // Generate JWT token if login is successful
-//         const token = jwt.sign(
-//             { userId: existingUser._id, email: existingUser.email },
-//             JWT_SECRET,
-//             { expiresIn: '7d' } // Token expires in 7 day
-//         );
-
-//         // Send the token and user data in the response
-//         res.status(200).json({
-//             status: "Success",
-//             message: "Login successful",
-//             token: token,
-//             data: existingUser
-//         });
-//     } catch (error) {
-//         // Handle any errors that occur during the process
-//         res.status(500).json({
-//             status: "Failure",
-//             message: "An error occurred while logging in",
-//             error: error.message
-//         });
-//     }
-// };
-
 exports.Login = async (req, res) => {
     try {
-        const existingUser = await user.findOne({ email: req.body.email });
+        // Check if the email exists in the user collection
+        let existingUser = await user.findOne({ email: req.body.email });
+        let isAdmin = false;
 
+        // If not found in the user collection, check the admin collection
+        if (!existingUser) {
+            existingUser = await admin.findOne({ email: req.body.email });
+            isAdmin = true; // Flag as admin if found in the admin collection
+        }
+
+        // If no user or admin is found, return an error
         if (!existingUser) {
             return res.status(404).json({
                 status: "Failure",
@@ -164,6 +102,7 @@ exports.Login = async (req, res) => {
             });
         }
 
+        // Verify the password
         const isPasswordCorrect = await bcrypt.compare(req.body.password, existingUser.password);
         if (!isPasswordCorrect) {
             return res.status(401).json({
@@ -172,8 +111,9 @@ exports.Login = async (req, res) => {
             });
         }
 
+        // Generate a JWT token with the isAdmin flag
         const token = jwt.sign(
-            { userId: existingUser._id, email: existingUser.email },
+            { userId: existingUser._id, email: existingUser.email, isAdmin },
             JWT_SECRET,
             { expiresIn: '7d' }
         );
@@ -182,6 +122,7 @@ exports.Login = async (req, res) => {
             status: "Success",
             message: "Login successful",
             token: token,
+            isAdmin, // Return the admin flag
             data: existingUser
         });
     } catch (error) {
@@ -195,6 +136,7 @@ exports.Login = async (req, res) => {
 
 // exports.sendotp = async (req, res, next) => {
 //     try {
+<<<<<<< Updated upstream
 //       const { email } = req.body;
 //       const User = await user.findOne({ email });
 //       console.log("email",User)
@@ -294,20 +236,137 @@ exports.sendotp = async (req, res, next) => {
         } else {
           console.log("Email sent:", info.response);
           return res.status(200).json({ message: "OTP sent to your email", otp });
+=======
+//         const { email } = req.body;
+
+//         // Search for the email in the user collection
+//         let User = await user.findOne({ email });
+//         let isAdmin = false;
+
+//         // If not found in the user collection, search in the admin collection
+//         if (!User) {
+//             User = await admin.findOne({ email });
+//             isAdmin = false;
+//         }
+
+//         // If the email is not found in either collection, return an error
+//         if (!User) {
+//             return res.status(404).json({ message: "User with this email does not exist" });
+//         }
+
+//         // Generate OTP
+//         const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+//         const otpExpiration = new Date(Date.now() + 3600000); // OTP expires in 1 hour
+
+//         // Save OTP and expiration to the user/admin
+//         User.otp = otp;
+//         User.otpExpiration = otpExpiration;
+//         await User.save();
+
+//         console.log(`OTP for ${User.email}: ${otp}`);
+
+//         // Send OTP via email
+//         const mailOptions = {
+//             from: '"Vidhi 👻" <vidhisavaliya@gmail.com>',
+//             to: User.email,
+//             subject: "Password Reset OTP",
+//             html: `<p>Your OTP for password reset is <strong>${otp}</strong></p><p>This OTP is valid for 1 hour.</p>`,
+//         };
+
+//         transporter.sendMail(mailOptions, (error, info) => {
+//             if (error) {
+//                 return res
+//                     .status(500)
+//                     .json({ message: "Error sending email: " + error.message });
+//             } else {
+//                 return res.status(200).json({ message: "OTP sent to your email", isAdmin:isAdmin,otp }); // Include OTP in the response
+//             }
+//         });
+//     } catch (error) {
+//         return res
+//             .status(500)
+//             .json({ message: "An error occurred: " + error.message });
+//     }
+// };
+
+exports.sendotp = async (req, res, next) => {
+    try {
+        const { email } = req.body;
+
+        // Search for the email in the user collection
+        let User = await user.findOne({ email });
+        let isAdmin = false;
+
+        // If not found in the user collection, search in the admin collection
+        if (!User) {
+            User = await admin.findOne({ email });
+            isAdmin = true; // Email belongs to admin
+>>>>>>> Stashed changes
         }
-      });
+
+        // If the email is not found in either collection, return an error
+        if (!User) {
+            return res.status(404).json({ message: "User with this email does not exist" });
+        }
+
+        // Generate OTP
+        const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+        const otpExpiration = new Date(Date.now() + 3600000); // OTP expires in 1 hour
+
+        // Save OTP and expiration to the respective user/admin object
+        User.otp = otp;
+        User.otpExpiration = otpExpiration;
+
+        // Save changes to the respective collection
+        if (isAdmin) {
+            await User.save(); // Save to admin collection
+        } else {
+            await User.save(); // Save to user collection
+        }
+
+        console.log(`OTP for ${User.email}: ${otp}`);
+
+        // Send OTP via email
+        const mailOptions = {
+            from: '"Vidhi 👻" <vidhisavaliya@gmail.com>',
+            to: User.email,
+            subject: "Password Reset OTP",
+            html: `<p>Your OTP for password reset is <strong>${otp}</strong></p><p>This OTP is valid for 1 hour.</p>`,
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                return res.status(500).json({ message: "Error sending email: " + error.message });
+            } else {
+                return res
+                    .status(200)
+                    .json({ message: "OTP sent to your email", isAdmin, otp }); // Include isAdmin in the response
+            }
+        });
     } catch (error) {
+<<<<<<< Updated upstream
       console.error("Error:", error.message);
       return res.status(500).json({ message: "An error occurred: " + error.message });
+=======
+        return res
+            .status(500)
+            .json({ message: "An error occurred: " + error.message });
+>>>>>>> Stashed changes
     }
-  };
+};
+
 
   exports.verifyOtp = async (req, res) => {
     try {
         const { email, otp } = req.body;
 
         // Find the user by email
-        const User = await user.findOne({ email });
+        let User = await user.findOne({ email });
+
+        if (!User) {
+            User = await admin.findOne({ email });
+        }
+
         if (!User) {
             return res.status(404).json({ message: "User not found. Please sign up first." });
         }
@@ -391,7 +450,13 @@ exports.sendotp = async (req, res, next) => {
 exports.changePassword = async (req, res) => {
     try {
         const { email, password, newPassword } = req.body;
-        const User = await user.findOne({ email });
+        let User = await user.findOne({ email });
+        let isAdmin = false;
+
+        if (!User) {
+            User = await admin.findOne({ email });
+            isAdmin = true;
+        }
 
         if (!User) {
             return res.status(404).json({
@@ -414,7 +479,8 @@ exports.changePassword = async (req, res) => {
 
         res.status(200).json({
             status: "Success",
-            message: "Password changed successfully."
+            message: "Password changed successfully.",
+            isAdmin:isAdmin
         });
     } catch (error) {
         res.status(500).json({
@@ -479,7 +545,12 @@ exports.changePassword = async (req, res) => {
 exports.resetPassword = async (req, res) => {
     try {
         const { email, newPassword, otp } = req.body;
-        const User = await user.findOne({ email });
+        let User = await user.findOne({ email });
+
+
+        if (!User) {
+            User = await admin.findOne({ email });
+        }
 
         if (!User) {
             return res.status(404).json({
