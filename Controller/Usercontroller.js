@@ -9,12 +9,20 @@ storage.init();
 const JWT_SECRET = process.env.JWT_SECRET || "your_jwt_secret_key";
 const SALT_ROUNDS = 10;
 
-const transporter = nodemailer.createTransport({
-    service: "catalina25@ethereal.email",
+// const transporter = nodemailer.createTransport({
+//     service: "catalina25@ethereal.email",
+//     auth: {
+//       user: "connie43@ethereal.email",
+//       pass: "SHA7X6aQqWuAykfdg5",
+//     },
+//   });
+
+var transporter = nodemailer.createTransport({
+    service: 'gmail',
     auth: {
-      user: "connie43@ethereal.email",
-      pass: "SHA7X6aQqWuAykfdg5",
-    },
+      user: 'vidhisavaliya017@gmail.com',
+      pass: 'ppte fdci pvtg twvf'
+    }
   });
 
 // exports.Signup=async (req,res)=>{
@@ -185,49 +193,112 @@ exports.Login = async (req, res) => {
     }
 };
 
+// exports.sendotp = async (req, res, next) => {
+//     try {
+//       const { email } = req.body;
+//       const User = await user.findOne({ email });
+//       console.log("email",User)
+  
+//       if (!User) {
+//         return res
+//           .status(404)
+//           .json({ message: "User with this email does not exist" });
+//       }
+  
+//       // Generate OTP
+//       const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit OTP
+//       const otpExpiration = new Date(Date.now() + 3600000); // OTP expires in 1 hour
+  
+//       // Save OTP and expiration to user
+//       User.otp = otp;
+//       User.otpExpiration = otpExpiration;
+//       await User.save();
+//       console.log(`OTP for ${User.email}: ${otp}`); 
+  
+//       // Send OTP via email
+//     //   const mailOptions = {
+//     //     from: '"vidhi 👻" <vidhisavaliya@gmail.com>',
+//     //     to: User.email,
+//     //     subject: "Password Reset OTP",
+//     //     html: `<p>Your OTP for password reset is ${otp}</p><p>This OTP is valid for 1 hour.</p>`,
+//     //   };
+  
+//     var mailOptions = {
+//         from: 'vidhisavaliya017@gmail.com',
+//         to: User.email,
+//         subject: 'Sending Email using Node.js',
+//         text: `Your OTP for password reset is ${otp}This OTP is valid for 1 hour.`,
+//       };
+
+//       transporter.sendMail(mailOptions, (error, info) => {
+//         if (error) {
+//           return res
+//             .status(500)
+//             .json({ message: "Error sending email: " + error.message });
+//         } else {
+//           return res.status(200).json({ message: "OTP sent to your email", otp }); // Include OTP in the response
+//         }
+//       });
+
+   
+
+//     // transporter.sendMail(mailOptions, function(error, info){
+//     //     if (error) {
+//     //       console.log(error);
+//     //     } else {
+//     //       console.log('Email sent: ' + info.response);
+//     //     }
+//     //   });
+//     } catch (error) {
+//       return res
+//         .status(500)
+//         .json({ message: "An error occurred: " + error.message });
+//     }
+//   };
+
 exports.sendotp = async (req, res, next) => {
     try {
       const { email } = req.body;
-      const User = await user.findOne({ email });
-      console.log("email",User)
+  
+      const User = await user.findOne({ email }); // Check if user exists in DB
+      console.log("email", User);
   
       if (!User) {
-        return res
-          .status(404)
-          .json({ message: "User with this email does not exist" });
+        return res.status(404).json({ message: "User with this email does not exist" });
       }
   
       // Generate OTP
-      const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4 digit OTP
-      const otpExpiration = new Date(Date.now() + 3600000); // OTP expires in 1 hour
+      const otp = Math.floor(1000 + Math.random() * 9000).toString(); // 4-digit OTP
+      const otpExpiration = new Date(Date.now() + 3600000); // 1 hour expiration
   
       // Save OTP and expiration to user
       User.otp = otp;
       User.otpExpiration = otpExpiration;
       await User.save();
-      console.log(`OTP for ${User.email}: ${otp}`); 
+      console.log(`OTP for ${User.email}: ${otp}`);
   
-      // Send OTP via email
+      // Email options
       const mailOptions = {
-        from: '"vidhi 👻" <vidhisavaliya@gmail.com>',
-        to: User.email,
+        from: '"Vidhi 👻" <vidhisavaliya017@gmail.com>',
+        to: email,
         subject: "Password Reset OTP",
-        html: `<p>Your OTP for password reset is ${otp}</p><p>This OTP is valid for 1 hour.</p>`,
+        text: `Your OTP for password reset is ${otp}. This OTP is valid for 1 hour.`,
+        html: `<p>Your OTP for password reset is <b>${otp}</b>.</p><p>This OTP is valid for 1 hour.</p>`,
       };
   
+      // Send email
       transporter.sendMail(mailOptions, (error, info) => {
         if (error) {
-          return res
-            .status(500)
-            .json({ message: "Error sending email: " + error.message });
+          console.error("Error sending email:", error.message);
+          return res.status(500).json({ message: "Error sending email: " + error.message });
         } else {
-          return res.status(200).json({ message: "OTP sent to your email", otp }); // Include OTP in the response
+          console.log("Email sent:", info.response);
+          return res.status(200).json({ message: "OTP sent to your email", otp });
         }
       });
     } catch (error) {
-      return res
-        .status(500)
-        .json({ message: "An error occurred: " + error.message });
+      console.error("Error:", error.message);
+      return res.status(500).json({ message: "An error occurred: " + error.message });
     }
   };
 
